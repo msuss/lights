@@ -36,35 +36,28 @@ uint8_t* getRGB(uint32_t c)
   return &rgb[0];
 }
 
-uint32_t darker(uint32_t c, int scale){
+
+uint32_t darker(uint32_t c, double scale){
   uint8_t *rgb = getRGB(c);
   int r = rgb[0];
   int g = rgb[1];
   int b = rgb[2];
-  Serial.print("Red: ");
-  Serial.println(rgb[0]);
-  Serial.print("Green: ");
-  Serial.println(rgb[1]);
-  Serial.print("Blue: ");
-  Serial.println(rgb[2]);
   int newR=r/scale;
   int newG=g/scale;
   int newB=b/scale;
-  if (newR==0 && r!=0 || newG==0 && g!=0 || newB==0 && b!=0) return c;
-  return strip.Color(r/2, g/2, b/2);
+  if ((newR==0 && r!=0) || (newG==0 && g!=0) || (newB==0 && b!=0)) 
+  {
+    Serial.println("NOPE");
+    return c;
+  }
+  return strip.Color(newR, newG, newB);
 }
 
-uint32_t brighter(uint32_t c, int scale){
+uint32_t brighter(uint32_t c, double scale){
   uint8_t *rgb = getRGB(c);
   int r = rgb[0];
   int g = rgb[1];
   int b = rgb[2];
-  Serial.print("Red: ");
-  Serial.println(rgb[0]);
-  Serial.print("Green: ");
-  Serial.println(rgb[1]);
-  Serial.print("Blue: ");
-  Serial.println(rgb[2]);
   int newR=r*scale;
   int newG=g*scale;
   int newB=b*scale;
@@ -83,16 +76,19 @@ void setup() {
   strip.show();
 }
 
-uint32_t currentColor=strip.Color(1,2,0);
-boolean brightnessUp=true;
+uint32_t blue=strip.Color(0,0,127);
+uint32_t teal=strip.Color(0,127,127);
+uint32_t green=strip.Color(0,127,0);
+uint32_t yellow=strip.Color(127,127,0);
+uint32_t red=strip.Color(127,0,0);
+uint32_t purple=strip.Color(127,0,127);
+
+uint32_t colors[]={blue, teal, green, yellow, red, purple};
+int currentIdx = 0;
 void loop() {
-    uint8_t *rgb = getRGB(currentColor);
-    allLit(currentColor, 10000); // White
-    uint32_t newColor;
-    if (brightnessUp) newColor=brighter(currentColor, 2);
-    else newColor=darker(currentColor, 2);
-    if (newColor==currentColor) brightnessUp=!brightnessUp;
-    currentColor=newColor;
+
+    chaseFill(colors[currentIdx],10);
+    currentIdx= (currentIdx+1)%6;
 }
 
 void allLit(uint32_t c, uint8_t wait) {
@@ -109,9 +105,99 @@ void allLit(uint32_t c, uint8_t wait) {
    strip.show(); 
 }
 
+void lightRight(uint32_t c, uint8_t wait) {
+  int i;
+  
+  // Start by turning all pixels off:
+  for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
+
+   for(i=0; i<strip.numPixels(); i++) {
+     
+     if (i<46) strip.setPixelColor(i, c);
+   }
+   
+   delay(wait);
+   strip.show(); 
+}
+
+void lightLeft(uint32_t c, uint8_t wait) {
+  int i;
+  
+  // Start by turning all pixels off:
+  for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
+
+   for(i=0; i<strip.numPixels(); i++) {
+     
+     if (i>113) strip.setPixelColor(i, c);
+   }
+   
+   delay(wait);
+   strip.show(); 
+}
+
+void lightTop(uint32_t c, uint8_t wait) {
+  int i;
+  
+  // Start by turning all pixels off:
+  for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
+
+   for(i=0; i<strip.numPixels(); i++) {
+     
+     if (i >=46 && i <= 113) strip.setPixelColor(i, c);
+   }
+   
+   delay(wait);
+   strip.show(); 
+}
+// Chase one dot down the full strip.
+int trailLen=6;
+void colorChase(uint32_t c, uint8_t wait) {
+  int i;
+
+  // Start by turning all pixels off:
+  for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
+
+  // Then display one pixel at a time:
+  for(i=0; i<strip.numPixels()+trailLen; i++) {
+    int j;
+    for (j=i; j>=0 && j>=i-2*trailLen; j--){
+      if (j<strip.numPixels())
+        strip.setPixelColor(j, darker(c, pow(2, (i-j)/2)));
+    }
+    strip.show();              // Refresh LED states
+    strip.setPixelColor(i, 0); // Erase pixel, but don't refresh!
+    for (j=i; j>=0 && j>=i-2*trailLen; j--){
+      strip.setPixelColor(j, 0);
+    }
+    delay(wait);
+  }
+
+  strip.show(); // Refresh to turn off last pixel
+}
+
+void chaseFill(uint32_t c, uint8_t wait) {
+  int i;
+
+  // Start by turning all pixels off:
+
+  // Then display one pixel at a time:
+  for(i=0; i<strip.numPixels()+trailLen; i++) {
+    int j;
+    for (j=i; j>=0 && j>=i-trailLen; j--){
+      if (j<strip.numPixels())
+        strip.setPixelColor(j, darker(c, pow(2, i-j)));
+    }
+    strip.show();              // Refresh LED states
+    
+
+    delay(wait);
+  }
+
+  strip.show(); // Refresh to turn off last pixel
+}
 
 // Chase one dot down the full strip.  Good for testing purposes.
-void colorChase(uint32_t c, uint8_t wait) {
+void movingLights(uint32_t c, uint8_t wait) {
   int i;
   
   // Start by turning all pixels off:
