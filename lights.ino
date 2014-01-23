@@ -86,10 +86,23 @@ uint32_t nextInFadeSequence(uint32_t start, uint32_t finish, int steps)
   int deltaB = (rgbFinish[2] - rgbStart[2])/steps;
   return addRGB(start, deltaR, deltaG, deltaB);
 }
+//Get the color at a specific "pos" in a fade sequence of length "steps"
+uint32_t colorInFadeSequence(uint32_t start, uint32_t finish, int steps, int pos)
+{
+  if (steps == 0){
+    return finish;
+  }
+  uint8_t *rgbStart = getRGB(start);
+  uint8_t *rgbFinish = getRGB(finish);
+  int deltaR = (rgbFinish[0] - rgbStart[0])*pos/steps;
+  int deltaG = (rgbFinish[1] - rgbStart[1])*pos/steps;
+  int deltaB = (rgbFinish[2] - rgbStart[2])*pos/steps;
+  return addRGB(start, deltaR, deltaG, deltaB);
+}
 
 void setup() {
   Serial.begin(9600);
-  
+  randomSeed(analogRead(0));
   // Start up the LED strip
   strip.begin();
 
@@ -97,20 +110,21 @@ void setup() {
   strip.show();
 }
 
-uint32_t blue=strip.Color(0,0,127);
-uint32_t teal=strip.Color(0,127,127);
-uint32_t green=strip.Color(0,127,0);
-uint32_t yellow=strip.Color(127,127,0);
-uint32_t red=strip.Color(127,0,0);
-uint32_t purple=strip.Color(127,0,127);
+uint32_t blue=strip.Color(0,0,16);
+uint32_t teal=strip.Color(0,16,16);
+uint32_t green=strip.Color(0,16,0);
+uint32_t yellow=strip.Color(16,16,0);
+uint32_t red=strip.Color(16,0,0);
+uint32_t purple=strip.Color(16,0,16);
+
 
 uint32_t colors[]={blue, teal, green, yellow, red, purple};
 
 int currentIdx = 0;
 void loop() {
 
-    fadeFill(colors[currentIdx], colors[(currentIdx+2)%6],10);
-    currentIdx= (currentIdx+1)%6;
+    fadeFillContinuous(colors[currentIdx%6], colors[(currentIdx+2)%6], colors[(currentIdx+4)%6] ,5);
+    currentIdx++;
 }
 
 void allLit(uint32_t c, uint8_t wait) {
@@ -190,7 +204,7 @@ void lightTop(uint32_t c, uint8_t wait) {
 }
 // Chase one dot down the full strip.
 int trailLen=6;
-int trailMultiplier=4;
+int trailMultiplier=25;
 void colorChase(uint32_t c, uint8_t wait) {
   int i;
 
@@ -264,22 +278,86 @@ void fadeChase(uint32_t c1, uint32_t c2, uint8_t wait) {
 
   strip.show(); // Refresh to turn off last pixel
 }
+void fadeFill(uint32_t c1, uint32_t c2,  uint32_t c3, uint8_t wait) {
+  int i;
 
-void fadeFill(uint32_t c1, uint32_t c2, uint8_t wait) {
+  // Then display one pixel at a time:
+  for(i=0; i<strip.numPixels(); i++) {
+    int j;
+    uint32_t current = c1;
+    if (i>=strip.numPixels()+trailLen*trailMultiplier/2-1){
+      current=c2;
+    }
+    for (j=i; j>=0 && j>=i-trailMultiplier*trailLen; j--){
+      if (j<strip.numPixels()){
+        int numSteps = trailMultiplier*trailLen - (i - j);
+        if (numSteps>trailMultiplier*trailLen/2){
+          strip.setPixelColor(j, current);
+          current = nextInFadeSequence(current, c2, numSteps-trailMultiplier*trailLen/2);
+        }
+        else{
+          strip.setPixelColor(j, current);
+          current = nextInFadeSequence(current, c3, numSteps);
+        }
+      }
+    }
+    strip.show();              // Refresh LED states
+
+    delay(wait);
+  }
+
+  strip.show(); // Refresh to turn off last pixel
+}
+
+void fadeFillContinuous(uint32_t c1, uint32_t c2,  uint32_t c3, uint8_t wait) {
+  int i;
+
+  uint32_t current1=c1;
+  uint32_t current2=c2;
+  uint32_t current3=c3;
+  int offset=0;
+  while (true){
+    for(i=0; i<strip.numPixels()/3; i++) {
+      strip.setPixelColor((i+offset)%strip.numPixels(), colorInFadeSequence(current1,current2,strip.numPixels()/3,i));
+    }
+    for(i=strip.numPixels()/3; i<2*strip.numPixels()/3; i++) {
+      strip.setPixelColor((i+offset)%strip.numPixels(), colorInFadeSequence(current2,current3,strip.numPixels()/3,i-strip.numPixels()/3));
+    }
+    for(i=2*strip.numPixels()/3; i<strip.numPixels(); i++) {
+      strip.setPixelColor((i+offset)%strip.numPixels(), colorInFadeSequence(current3,current1,strip.numPixels()/3,i-2*strip.numPixels()/3));
+    }
+    delay(wait);
+    strip.show(); // Refresh to turn off last pixel
+    offset++;
+    
+  }
+}
+
+
+void fadeFillClear(uint32_t c1, uint32_t c2,  uint32_t c3, uint8_t wait) {
   int i;
 
   // Start by turning all pixels off:
   for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
 
   // Then display one pixel at a time:
-  for(i=0; i<strip.numPixels()+trailLen*trailMultiplier; i++) {
+  for(i=0; i<strip.numPixels()+trailLen*trailMultiplier/2; i++) {
     int j;
     uint32_t current = c1;
+    if (i>=strip.numPixels()+trailLen*trailMultiplier/2-1){
+      current=c2;
+    }
     for (j=i; j>=0 && j>=i-trailMultiplier*trailLen; j--){
       if (j<strip.numPixels()){
         int numSteps = trailMultiplier*trailLen - (i - j);
-        strip.setPixelColor(j, current);
-        current = nextInFadeSequence(current, c2, numSteps);
+        if (numSteps>trailMultiplier*trailLen/2){
+          strip.setPixelColor(j, current);
+          current = nextInFadeSequence(current, c2, numSteps-trailMultiplier*trailLen/2);
+        }
+        else{
+          strip.setPixelColor(j, current);
+          current = nextInFadeSequence(current, c3, numSteps);
+        }
       }
     }
     strip.show();              // Refresh LED states
