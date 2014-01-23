@@ -65,6 +65,24 @@ uint32_t brighter(uint32_t c, double scale){
   return strip.Color(newR, newG, newB);
 }
 
+uint32_t addRGB(uint32_t c, int r, int g, int b)
+{
+  uint8_t *rgb = getRGB(c);
+  int newR = max(min(rgb[0]+r,127),0);
+  int newG = max(min(rgb[1]+g,127),0);
+  int newB = max(min(rgb[2]+b,127),0);
+  return strip.Color(newR, newG, newB);
+}
+
+uint32_t nextInFadeSequence(uint32_t start, uint32_t finish, int steps)
+{
+  uint8_t *rgbStart = getRGB(start);
+  uint8_t *rgbFinish = getRGB(finish);
+  int deltaR = (rgbFinish[0] - rgbStart[0])/steps;
+  int deltaG = (rgbFinish[1] - rgbStart[1])/steps;
+  int deltaB = (rgbFinish[2] - rgbStart[2])/steps;
+  return addRGB(start, deltaR, deltaG, deltaB);
+}
 
 void setup() {
   Serial.begin(9600);
@@ -84,10 +102,11 @@ uint32_t red=strip.Color(127,0,0);
 uint32_t purple=strip.Color(127,0,127);
 
 uint32_t colors[]={blue, teal, green, yellow, red, purple};
+
 int currentIdx = 0;
 void loop() {
 
-    chaseFill(colors[currentIdx],10);
+    chaseFill(colors[currentIdx],20);
     currentIdx= (currentIdx+1)%6;
 }
 
@@ -151,6 +170,7 @@ void lightTop(uint32_t c, uint8_t wait) {
 }
 // Chase one dot down the full strip.
 int trailLen=6;
+int trailMultiplier=1;
 void colorChase(uint32_t c, uint8_t wait) {
   int i;
 
@@ -158,21 +178,22 @@ void colorChase(uint32_t c, uint8_t wait) {
   for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
 
   // Then display one pixel at a time:
-  for(i=0; i<strip.numPixels()+trailLen; i++) {
+  for(i=0; i<strip.numPixels()+trailLen*trailMultiplier; i++) {
     int j;
-    for (j=i; j>=0 && j>=i-2*trailLen; j--){
+    for (j=i; j>=0 && j>=i-trailMultiplier*trailLen; j--){
       if (j<strip.numPixels())
-        strip.setPixelColor(j, darker(c, pow(2, (i-j)/2)));
+        strip.setPixelColor(j, darker(c, pow(2, (i-j)/trailMultiplier)));
     }
     strip.show();              // Refresh LED states
     strip.setPixelColor(i, 0); // Erase pixel, but don't refresh!
-    for (j=i; j>=0 && j>=i-2*trailLen; j--){
+    for (j=i; j>=0 && j>=i-trailMultiplier*trailLen; j--){
       strip.setPixelColor(j, 0);
     }
-    delay(wait);
+    delay(wait/(pow(trailMultiplier,2)));
   }
 
   strip.show(); // Refresh to turn off last pixel
+  trailMultiplier++;
 }
 
 void chaseFill(uint32_t c, uint8_t wait) {
