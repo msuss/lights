@@ -73,7 +73,7 @@ uint32_t addRGB(uint32_t c, int r, int g, int b)
   int newB = max(min(rgb[2]+b,127),0);
   return strip.Color(newR, newG, newB);
 }
-
+//Has issues with rounding down to 0
 uint32_t nextInFadeSequence(uint32_t start, uint32_t finish, int steps)
 {
   uint8_t *rgbStart = getRGB(start);
@@ -106,8 +106,7 @@ uint32_t colors[]={blue, teal, green, yellow, red, purple};
 int currentIdx = 0;
 void loop() {
 
-    chaseFill(colors[currentIdx],20);
-    currentIdx= (currentIdx+1)%6;
+    allFade(colors[0], colors[2],20);
 }
 
 void allLit(uint32_t c, uint8_t wait) {
@@ -118,6 +117,23 @@ void allLit(uint32_t c, uint8_t wait) {
 
    for(i=0; i<strip.numPixels(); i++) {
      strip.setPixelColor(i, c);
+   }
+   
+   delay(wait);
+   strip.show(); 
+}
+
+void allFade(uint32_t c1, uint32_t c2, uint8_t wait) {
+  int i;
+  
+  // Start by turning all pixels off:
+  for(i=0; i<strip.numPixels(); i++) strip.setPixelColor(i, 0);
+  uint32_t current = c1;
+   for(i=0; i<strip.numPixels(); i++) {
+     int numSteps = strip.numPixels() - (i+1);
+     strip.setPixelColor(i, current);
+     current = nextInFadeSequence(current, c2, numSteps);
+     
    }
    
    delay(wait);
